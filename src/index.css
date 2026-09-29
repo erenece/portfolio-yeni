@@ -1,0 +1,261 @@
+:root {
+  /* matched to the video background by scripts/extract_frames.py (manifest.json) */
+  --bg: #6936a0;
+  --ink: #ffffff;
+  --ink-soft: rgba(255, 255, 255, 0.78);
+  --glass: rgba(255, 255, 255, 0.12);
+  --glass-line: rgba(255, 255, 255, 0.32);
+  --sans: 'Manrope', system-ui, sans-serif;
+  --script: 'Dancing Script', cursive;
+  --gutter: clamp(16px, 4vw, 56px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Full-viewport canvas; the cover math lives in CharacterCanvas.jsx */
+.character {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100%;
+  object-fit: cover;
+  background: var(--bg);
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+.character.is-ready {
+  opacity: 1;
+}
+
+/* ---------- Frosted nav pill ---------- */
+
+.nav-pill {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 3;
+  padding: 6px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(30, 10, 60, 0.18);
+}
+
+.nav-pill nav {
+  display: flex;
+  gap: 2px;
+}
+
+.nav-pill a {
+  display: block;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background 0.3s, transform 0.25s ease-out;
+}
+
+.nav-pill a::before {
+  content: '[';
+  opacity: 0.5;
+  margin-right: 2px;
+}
+
+.nav-pill a::after {
+  content: ']';
+  opacity: 0.5;
+  margin-left: 2px;
+}
+
+.nav-pill a:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* ---------- Bottom-left copy ---------- */
+
+.hero-copy {
+  position: absolute;
+  left: var(--gutter);
+  bottom: clamp(28px, 7vh, 72px);
+  z-index: 2;
+  max-width: 340px;
+}
+
+.hello {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.name {
+  margin: 2px 0 14px -4px;
+  font-family: var(--script);
+  font-weight: 600;
+  font-size: clamp(64px, 9vw, 120px);
+  line-height: 1;
+  text-shadow: 0 6px 24px rgba(30, 8, 60, 0.35);
+}
+
+.bio {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  text-shadow: 0 1px 12px rgba(30, 8, 60, 0.4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.3s, color 0.3s, border-color 0.3s, transform 0.25s ease-out;
+}
+
+.btn-solid {
+  background: #fff;
+  color: #2b1245;
+}
+
+.btn-solid svg {
+  transition: translate 0.3s ease;
+}
+
+.btn-solid:hover svg {
+  translate: 2px -2px;
+}
+
+.btn-glass {
+  background: var(--glass);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* ---------- Magnetic cursor ---------- */
+
+.has-custom-cursor,
+.has-custom-cursor * {
+  cursor: none !important;
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  will-change: transform;
+}
+
+.cursor-dot.is-visible,
+.cursor-ring.is-visible {
+  opacity: 1;
+}
+
+/* outer element is moved by JS; inner span is centred and scaled by CSS */
+.cursor-dot span,
+.cursor-ring span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  translate: -50% -50%;
+  transition: scale 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s, opacity 0.3s;
+}
+
+.cursor-dot span {
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.9), 0 0 24px 6px rgba(255, 255, 255, 0.35);
+}
+
+.cursor-ring span {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.25), inset 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+.cursor-ring.is-hover span {
+  scale: 1.8;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cursor-dot.is-hover span {
+  scale: 0.5;
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 640px) {
+  .nav-pill a {
+    padding: 9px 12px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-copy {
+    right: var(--gutter);
+    bottom: 28px;
+  }
+
+  .bio {
+    font-size: 13px;
+  }
+}
