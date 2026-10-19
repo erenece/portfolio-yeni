@@ -20,7 +20,8 @@ export default function Home() {
         <h1 className="name">Ece</h1>
         <p className="bio">{t.home.bio}</p>
         <div className="actions">
-          <a href="/resume.pdf" className="btn btn-solid">
+          {/* opens the CV in the current language */}
+          <a href={t.home.resumeUrl} className="btn btn-solid" target="_blank" rel="noreferrer">
             {t.home.resume}
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
               <path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

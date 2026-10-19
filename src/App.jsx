@@ -5,6 +5,7 @@ import About from './pages/About.jsx'
 import Contact from './pages/Contact.jsx'
 import Home from './pages/Home.jsx'
 import NotFound from './pages/NotFound.jsx'
+import ProjectDetail from './pages/ProjectDetail.jsx'
 import Work from './pages/Work.jsx'
 
 // URL -> page. Every route sits inside <Layout>, so the navbar,
@@ -17,6 +18,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="work" element={<Work />} />
+            <Route path="work/:slug" element={<ProjectDetail />} />
             <Route path="about" element={<About />} />
             <Route path="contact" element={<Contact />} />
             <Route path="*" element={<NotFound />} />

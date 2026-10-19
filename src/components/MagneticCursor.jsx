@@ -40,7 +40,9 @@ export default function MagneticCursor() {
         ring.classList.toggle('is-hover', !!magnet)
         dot.classList.toggle('is-hover', !!magnet)
       }
-      if (magnet) {
+      // Big elements (project cards) opt out with data-no-magnet: a 30% pull on
+      // a 400px card moves it ~60px and makes it wobble. The ring still grows.
+      if (magnet && !magnet.hasAttribute('data-no-magnet')) {
         // 2D translate toward the cursor: the "magnetic" pull
         const r = magnet.getBoundingClientRect()
         const mx = (mouse.x - (r.left + r.width / 2)) * MAGNET_PULL

@@ -44,21 +44,73 @@ function loadFrame(src) {
   })
 }
 
-function release(frame) {
-  if (frame && typeof frame.close === 'function') frame.close()
+// The frames live here, outside the component, so they are loaded once per
+// visit. Leaving the home page and coming back used to re-download and
+// re-decode all ~40 frames (stutter + a frozen face for a moment); now the
+// remounted canvas finds them ready.
+const store = {
+  center: null,
+  slots: new Array(FRAME_COUNT).fill(null), // slot i = frame for angle i
+  loading: false,
+  listeners: new Set(), // mounted canvases that want to hear "a frame arrived"
+}
+
+function loadFrames(manifest) {
+  if (store.loading) return
+  store.loading = true
+  const notify = () => store.listeners.forEach((fn) => fn())
+
+  // manifest.sources[i] = which video frame slot i came from. Many slots
+  // repeat the same source, so load each distinct image only once:
+  // ~39 bitmaps instead of 64 (each 1080p bitmap is ~8MB of memory).
+  const sources = manifest.sources ?? Array.from({ length: FRAME_COUNT }, (_, i) => i)
+  const firstSlot = new Map() // source frame -> first slot that uses it
+  sources.forEach((source, slot) => {
+    if (!firstSlot.has(source)) firstSlot.set(source, slot)
+  })
+  const pad = (n) => String(n).padStart(2, '0')
+
+  // Center first so something shows immediately, then the rest in parallel.
+  // Each frame is usable the moment it arrives; no waiting for all of them.
+  loadFrame('/frames/center.webp')
+    .then((img) => {
+      store.center = img
+      notify()
+      return Promise.all(
+        [...firstSlot].map(([source, slot]) =>
+          loadFrame(`/frames/${pad(slot)}.webp`).then((bitmap) => {
+            sources.forEach((s, i) => {
+              if (s === source) store.slots[i] = bitmap
+            })
+            notify()
+          }),
+        ),
+      )
+    })
+    .catch(() => {
+      store.loading = false // a frame failed (offline?): try again on the next mount
+    })
+}
+
+// While frames are still arriving, use the closest angle that is already loaded
+function nearestFrame(index) {
+  for (let d = 0; d <= FRAME_COUNT / 2; d++) {
+    const ahead = store.slots[(index + d) % FRAME_COUNT]
+    if (ahead) return ahead
+    const behind = store.slots[(index - d + FRAME_COUNT) % FRAME_COUNT]
+    if (behind) return behind
+  }
+  return null
 }
 
 export default function CharacterCanvas({ manifest, label }) {
   const canvasRef = useRef(null)
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(() => store.center !== null)
 
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d', { alpha: false })
-    let frames = []
-    let unique = [] // each distinct bitmap once (several slots share the same source frame)
-    let center = null
-    let cancelled = false
+    let started = false
     let rafId = 0
 
     // Shared mutable state for the render loop (no React re-renders at 60fps)
@@ -132,7 +184,7 @@ export default function CharacterCanvas({ manifest, label }) {
     // the center frame gets a short fade, because that one is a big pose change.
     function show(img, now) {
       if (!img || img === target) return
-      const crossesCenter = target && (img === center || target === center)
+      const crossesCenter = target && (img === store.center || target === store.center)
       if (crossesCenter && !fade) fade = { from: target, start: now }
       target = img
       dirty = true
@@ -160,6 +212,8 @@ export default function CharacterCanvas({ manifest, label }) {
     function tick(now) {
       const dt = Math.min(now - lastTime, 100)
       lastTime = now
+      rafId = requestAnimationFrame(tick)
+      if (!store.center) return // nothing to draw yet
 
       if (pointer.active) {
         const faceX = cover.x + manifest.face.x * cover.w
@@ -170,7 +224,7 @@ export default function CharacterCanvas({ manifest, label }) {
 
         if (Math.hypot(dx, dy) < radius) {
           smoothed = null
-          show(center, now)
+          show(store.center, now)
         } else {
           const angle = Math.atan2(dy, dx)
           // Frame-rate independent version of "move 26% of the way each frame"
@@ -179,15 +233,14 @@ export default function CharacterCanvas({ manifest, label }) {
 
           const normalized = (smoothed + Math.PI * 2) % (Math.PI * 2)
           const index = Math.round(normalized / STEP) % FRAME_COUNT
-          show(frames[index], now)
+          show(nearestFrame(index), now)
         }
       } else {
         smoothed = null
-        show(center, now)
+        show(store.center, now)
       }
 
       render(now)
-      rafId = requestAnimationFrame(tick)
     }
 
     function onPointerMove(e) {
@@ -199,46 +252,35 @@ export default function CharacterCanvas({ manifest, label }) {
       pointer.active = false
     }
 
-    // manifest.sources[i] = which video frame slot i came from. Many slots
-    // repeat the same source, so load each distinct image only once:
-    // ~39 bitmaps instead of 64 (each 1080p bitmap is ~8MB of memory).
-    const sources = manifest.sources ?? Array.from({ length: FRAME_COUNT }, (_, i) => i)
-    const firstSlot = new Map() // source frame -> first slot that uses it
-    sources.forEach((source, slot) => {
-      if (!firstSlot.has(source)) firstSlot.set(source, slot)
-    })
-    const pad = (n) => String(n).padStart(2, '0')
-
-    // Center first so something shows immediately, then the rest in parallel
-    loadFrame('/frames/center.webp').then((img) => {
-      if (cancelled) return release(img)
-      center = img
+    // First paint as soon as the center frame exists (instantly if it was
+    // already loaded on an earlier visit to the home page)
+    function onFrame() {
+      if (started || !store.center) return
+      started = true
       resize()
-      show(center, performance.now())
+      show(store.center, performance.now())
       render(performance.now())
       setReady(true)
-      return Promise.all([...firstSlot.values()].map((slot) => loadFrame(`/frames/${pad(slot)}.webp`)))
-    }).then((imgs) => {
-      if (!imgs) return
-      if (cancelled) return imgs.forEach(release)
-      unique = imgs
-      const bySource = new Map([...firstSlot.keys()].map((source, i) => [source, imgs[i]]))
-      frames = sources.map((source) => bySource.get(source))
-      window.addEventListener('pointermove', onPointerMove, { passive: true })
-      document.documentElement.addEventListener('pointerleave', onPointerLeave)
-      rafId = requestAnimationFrame(tick)
-    })
+    }
+
+    store.listeners.add(onFrame)
+    loadFrames(manifest)
+    onFrame()
+
+    // Track the cursor right away; missing angles fall back to the nearest loaded one
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
+    document.documentElement.addEventListener('pointerleave', onPointerLeave)
+    rafId = requestAnimationFrame(tick)
 
     window.addEventListener('resize', resize)
 
+    // the frames stay in `store` for the next visit; only this canvas's listeners go
     return () => {
-      cancelled = true
+      store.listeners.delete(onFrame)
       cancelAnimationFrame(rafId)
       window.removeEventListener('resize', resize)
       window.removeEventListener('pointermove', onPointerMove)
       document.documentElement.removeEventListener('pointerleave', onPointerLeave)
-      unique.forEach(release)
-      release(center)
     }
   }, [manifest])
 
